@@ -200,14 +200,18 @@ static void clock_setup(enum clock_mode clock)
   rcc_set_sysclk_source(RCC_CFGR_SW_HSE);
   rcc_wait_for_sysclk_status(RCC_HSE);
 #elif defined(NUCLEO_F411_BOARD)
-  /* Nucleo-F411RE: HSE 8 MHz from the on-board ST-LINK MCO, PLL'd to
-     84 MHz (safely under the 100 MHz max for this chip) via an existing
-     libopencm3 table -- see the comment above this board's #elif in the
-     board-select block. No RNG on this chip: rng_enable() intentionally
-     not called, see the same comment for what that does and doesn't
-     affect. */
+  /* Nucleo-F411RE: internal HSI (16 MHz), PLL'd to 84 MHz (safely under
+     the 100 MHz max for this chip) via an existing libopencm3 table --
+     see the comment above this board's #elif in the board-select block.
+     Deliberately HSI, not HSE: this exact board's HSE-from-ST-LINK-MCO
+     was found NOT to be reliably present/enabled in this repo's P1
+     (freertos-stm32), which uses HSI for the same reason -- confirmed
+     again here the hard way (rcc_wait_for_osc_ready(RCC_HSE) hangs
+     forever with zero UART output, no PLL source). No RNG on this chip:
+     rng_enable() intentionally not called, see the same comment for
+     what that does and doesn't affect. */
   (void) clock;
-  rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_84MHZ]);
+  rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
   flash_prefetch_enable();
 #elif defined(NUCLEO_BOARD)
   /* NUCLEO-L476RG Board */

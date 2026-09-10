@@ -11,7 +11,7 @@ def parse_arguments():
         "-p",
         "--platform",
         help="The PQM4 platform",
-        choices=["stm32f4discovery", "nucleo-l476rg", "nucleo-l4r5zi", "cw308t-stm32f3", "cw308t-stm32f415", "mps2-an386"],
+        choices=["stm32f4discovery", "nucleo-f411re", "nucleo-l476rg", "nucleo-l4r5zi", "cw308t-stm32f3", "cw308t-stm32f415", "mps2-an386"],
         default="stm32f4discovery",
     )
     parser.add_argument(
@@ -37,6 +37,17 @@ def get_platform(args):
     bin_type = 'bin'
     if args.platform in ['stm32f4discovery', 'nucleo-l476rg']:
         platform = platforms.StLink(args.uart)
+    elif args.platform == "nucleo-f411re":
+        # Not upstream pqm4 -- board added locally, see mk/nucleo-f411re.mk
+        # and the board branch in common/hal-opencm3.c. Uses OpenOCD (like
+        # nucleo-l4r5zi) with the config already proven on this exact board
+        # in this repo's P1 (freertos-stm32). bin_type='hex' below for the
+        # same reason nucleo-l4r5zi uses it: OpenOCD's `program ... verify
+        # reset exit` with a raw .bin and no explicit load address is
+        # unreliable (confirmed the hard way -- intermittently flashed to
+        # the wrong address); .hex is self-describing, no ambiguity.
+        bin_type = 'hex'
+        platform = platforms.OpenOCD("../openocd/nucleo-f411re.cfg", args.uart)
     elif args.platform == "nucleo-l4r5zi":
         bin_type = 'hex'
         platform = platforms.OpenOCD("st_nucleo_l4r5.cfg", args.uart)
@@ -65,6 +76,7 @@ class M4Settings(mupq.PlatformSettings):
 
     platform_memory = {
         'stm32f4discovery': 128*1024,
+        'nucleo-f411re': 128*1024,
         'nucleo-l476rg': 128*1024,
         'cw308t-stm32f3': 64*1024,
         'cw308t-stm32f415': 192*1024,
