@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 or CC0-1.0
 #include "randombytes.h"
 
-#if defined(STM32F2) || defined(STM32F4) || defined(STM32L4R5ZI) && !defined(MPS2_AN386)
+#if defined(STM32F2) || (defined(STM32F4) && !defined(STM32F411RE)) || defined(STM32L4R5ZI) && !defined(MPS2_AN386)
 
 #include <libopencm3/stm32/rng.h>
 
@@ -36,6 +36,15 @@ int randombytes(uint8_t *obuf, size_t len)
 }
 
 #else /* NONRANDOM FALLBACK IMPLEMENTATION */
+/* STM32F411RE lands here deliberately: unlike the other STM32F4 chips
+   above, it has no hardware RNG peripheral. This deterministic PRNG
+   (same fixed seed every boot) is fine for the *_test/*_speed/*_stack
+   binaries' internal keypair/enc calls -- purely a functional demo, no
+   security property implied or needed there -- but must never be
+   mistaken for real entropy. It does not affect this project's actual
+   side-channel target (crypto_kem_dec is deterministic given sk/ct, no
+   randomness involved), nor *_testvectors (already fully deterministic
+   by design, see mupq/crypto_kem/testvectors.c). See kyber-sca/README.md. */
 #warning Using a non-random randombytes
 
 #include <string.h>
