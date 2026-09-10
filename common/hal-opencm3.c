@@ -39,6 +39,33 @@ const struct rcc_clock_scale benchmarkclock = {
   .apb2_frequency = 24000000,
 };
 
+#elif defined(STM32F411RE)
+/* Nucleo-F411RE. Not an upstream pqm4 board -- added locally for this
+   project (same board as P1/freertos-stm32 in this repo). Two differences
+   from the STM32F407VG Discovery board pqm4 does support natively, both
+   handled below:
+   - F411's max CPU/AHB frequency is 100 MHz (vs 168 MHz on F407), so the
+     Discovery board's clock table doesn't apply; RCC_CLOCK_3V3_84MHZ
+     (an existing libopencm3 HSE-8MHz table, safely under the 100 MHz
+     limit) is used for both modes instead of a hand-rolled PLL config.
+   - The F411 die has NO hardware RNG peripheral (unlike F405/407/415/417/
+     427/437/429/439, which do). RCC_RNG/rng_enable() are deliberately NOT
+     called here. This is fine for testvectors builds (NO_RANDOMBYTES,
+     deterministic DRBG, no dependency on this at all) but means the plain
+     `_test`/`_speed`/`_stack` binaries -- which link common/randombytes.c
+     and call rng_get_random_blocking() -- will hang on real hardware
+     until a software entropy source replaces it. Tracked as a known
+     limitation, see ../../README.md. */
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/flash.h>
+#define SERIAL_GPIO GPIOA
+#define SERIAL_USART USART2
+#define SERIAL_PINS (GPIO2 | GPIO3)
+#define STM32
+#define NUCLEO_F411_BOARD
+
 #elif defined(STM32L476RG)
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
@@ -172,6 +199,16 @@ static void clock_setup(enum clock_mode clock)
 # endif
   rcc_set_sysclk_source(RCC_CFGR_SW_HSE);
   rcc_wait_for_sysclk_status(RCC_HSE);
+#elif defined(NUCLEO_F411_BOARD)
+  /* Nucleo-F411RE: HSE 8 MHz from the on-board ST-LINK MCO, PLL'd to
+     84 MHz (safely under the 100 MHz max for this chip) via an existing
+     libopencm3 table -- see the comment above this board's #elif in the
+     board-select block. No RNG on this chip: rng_enable() intentionally
+     not called, see the same comment for what that does and doesn't
+     affect. */
+  (void) clock;
+  rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_84MHZ]);
+  flash_prefetch_enable();
 #elif defined(NUCLEO_BOARD)
   /* NUCLEO-L476RG Board */
   switch (clock) {
@@ -298,7 +335,7 @@ void usart_setup()
 #elif defined(CW_BOARD)
   rcc_periph_clock_enable(RCC_GPIOA);
   rcc_periph_clock_enable(RCC_USART1);
-#elif defined(NUCLEO_BOARD)
+#elif defined(NUCLEO_BOARD) || defined(NUCLEO_F411_BOARD)
   rcc_periph_clock_enable(RCC_GPIOA);
   rcc_periph_clock_enable(RCC_USART2);
 #elif defined(NUCLEO_L4R5_BOARD)
@@ -322,7 +359,7 @@ void usart_setup()
 #error Unsupported platform
 #endif
 
-#if defined(DISCOVERY_BOARD) || defined(NUCLEO_BOARD) || defined(CW_BOARD)
+#if defined(DISCOVERY_BOARD) || defined(NUCLEO_BOARD) || defined(CW_BOARD) || defined(NUCLEO_F411_BOARD)
   gpio_set_output_options(SERIAL_GPIO, GPIO_OTYPE_OD, GPIO_OSPEED_100MHZ, SERIAL_PINS);
   gpio_set_af(SERIAL_GPIO, GPIO_AF7, SERIAL_PINS);
   gpio_mode_setup(SERIAL_GPIO, GPIO_MODE_AF, GPIO_PUPD_PULLUP, SERIAL_PINS);
