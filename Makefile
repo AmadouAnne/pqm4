@@ -9,6 +9,7 @@ include mupq/mk/host-crypto.mk
 include mupq/mk/rules.mk
 include mupq/mk/schemes.mk
 include mk/tests.mk
+include mk/dudect.mk
 
 .PHONY: clean libclean
 
